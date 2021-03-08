@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:aop="http://www.springframework.org/schema/aop"
+	   xmlns:tx="http://www.springframework.org/schema/tx" 
+	   xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xmlns:task="http://www.springframework.org/schema/task"
+	   xsi:schemaLocation="
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-3.0.xsd"
+     >
+
+	<bean class="org.springframework.context.annotation.CommonAnnotationBeanPostProcessor" />
+	
+   <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="systemPropertiesModeName" value="SYSTEM_PROPERTIES_MODE_OVERRIDE" />
+		<property name="ignoreResourceNotFound" value="true" />
+		<property name="locations">
+			<list>
+				<value>classpath:systemConfig.properties</value>
+				<value>classpath:db.properties</value>
+			</list>
+		</property>
+	</bean>
+	
+	
+	<bean id="masterds" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<property name="driverClassName">
+			<value>${jdbc.driverClassName}</value>
+		</property>
+		<property name="url">
+			<value>${jdbc.url}</value>
+		</property>
+		<property name="username">
+			<value>${jdbc.username}</value>
+		</property>
+		<property name="password">
+			<value>${jdbc.password}</value>
+		</property>
+		<property name="maxActive">
+			<value>${jdbc.maxActive}</value>
+		</property>
+		<property name="maxIdle">
+			<value>${jdbc.maxIdle}</value>
+		</property>
+		<property name="maxWait">
+			<value>${jdbc.maxWait}</value>
+		</property>
+	</bean>
+
+    <bean id="dataSource" class="org.springframework.ds.DynamicDataSource">
+        <property name="targetDataSources">  
+              <map key-type="java.lang.String">  
+                 <entry key="master" value-ref="masterds"/>  
+              </map>  
+        </property>  
+        <property name="defaultTargetDataSource" ref="masterds"/>  
+    </bean>
+
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		 <property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<context:component-scan base-package="com.huating.*" />
+
+	<context:annotation-config />
+	<tx:annotation-driven transaction-manager="transactionManager"/>
+	<aop:aspectj-autoproxy  expose-proxy="true"/>
+	<task:annotation-driven />
+	 <!--  
+	<bean id="pagingPlugin" class="org.ssmm2.common.plugins.PagingPlugin">
+		<property name="dialectClass">
+			<value>org.ssmm2.common.persistence.dialect.OracleDialect</value>
+		</property>
+	</bean>
+-->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"></property>
+        <property name="configLocation" value="classpath:mybatis-config.xml"></property>
+        <property name="mapperLocations" value="classpath*:com/huating/fpps/dao/*.xml" />
+        <property name="typeAliasesPackage" value="com.miemiedev.smt.entity" />
+        <property name="typeAliases" value="org.springframework.util.LinkedCaseInsensitiveMap" />
+    	<property name="plugins" ref="executorInterceptor" />
+    	  <!--
+    	<property name="plugins">
+			<list>
+				<ref bean="pagingPlugin" />
+				<ref bean="executorInterceptor"/>
+			</list>
+		</property> -->
+    </bean>
+
+	<bean id="executorInterceptor" class="com.huating.jfp.core.base.ExecutorInterceptor">
+		<property name="dataSource" ref="masterds" />
+		<property name="idNameStrategy" ref="idNameStrategy" />
+		<property name="dialectHandler" ref="dialectHandler" />
+	</bean>
+
+	<bean id="idNameStrategy" class="com.huating.jfp.core.base.IIdNameStrategy.DefaultIdNameStrategy" />
+	<bean id="dialectHandler" class="com.huating.jfp.core.base.OracleDialectHandler" >
+	</bean>
+	
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="com.huating.**.dao" />
+	</bean>
+	<bean id="springContextUtil" class="com.huating.jfp.util.SpringContextUtil" lazy-init="false" />
+	
+	<!-- 
+	<bean id="loggerInjector" class="com.huating.jfp.util.LoggerInjector" />
+	-->
+	<import resource="spring_quartz.xml" />
+</beans>
